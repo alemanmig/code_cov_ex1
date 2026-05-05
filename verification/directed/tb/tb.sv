@@ -1,30 +1,41 @@
 // Testbench module for the 2:1 multiplexer (mux)
 
-module tb_mux;
+module tb;
 
-  // Declare testbench signals
-  reg sel, a, b;     // Input signals to the DUT (Device Under Test)
-  wire out;          // Output signal from the DUT
+  timeunit      1ns;
+  timeprecision 100ps;
 
-  // Instantiate the DUT (mux) and connect testbench signals
+  import config_pkg::*;
+
+  // Clock signal
+  logic clk_i = 0;
+  int unsigned MainClkPeriod = 10;  // 100 MHz -> 10 ns period
+  always #(MainClkPeriod / 2) clk_i = ~clk_i;
+
+  // Interface
+  vif_if vif (clk_i);
+
+  // Test
+  test top_test (vif);
+
+  // Instantiation
   mux dut (
-    .sel(sel),  // Connect testbench 'sel' to mux input 'sel'
-    .a(a),      // Connect testbench 'a' to mux input 'a'
-    .b(b),      // Connect testbench 'b' to mux input 'b'
-    .out(out)   // Connect mux output 'out' to testbench 'out'
+    .sel(vif.sel),  // Connect testbench 'sel' to mux input 'sel'
+    .a(vif.a),      // Connect testbench 'a' to mux input 'a'
+    .b(vif.b),      // Connect testbench 'b' to mux input 'b'
+    .out(vif.out)   // Connect mux output 'out' to testbench 'out'
   );
 
-  // Initial block to define the stimulus for the simulation
-  initial begin
-    // Test only one value of sel to demonstrate partial line coverage
-    sel = 1; a = 1; b = 0; #10;  // sel=1, so mux outputs 'a' (1) — Line A covered
-    sel = 1; a = 0; b = 1; #10;  // sel=1, mux outputs 'a' (0) — Line A again
+  // SVA
+  bind dut sva dut_sva (
+    .sel(vif.sel),
+    .a(vif.a),
+    .b(vif.b),|
+    .out(vif.out)
+  );
 
-    sel = 0; a = 0; b = 1; #10;  // sel=0, mux should output 'b' (1) — Actually covers Line B
-    sel = 0; a = 0; b = 0; #10;  // sel=0, mux outputs 'b' (0) — Line B again
-
-    // End simulation
-    $finish;
+initial begin
+    $timeformat(-9, 1, "ns", 10);
   end
 
-endmodule
+endmodule : tb
